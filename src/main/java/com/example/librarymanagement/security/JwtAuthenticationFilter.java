@@ -38,20 +38,34 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             jwt = authorizationHeader.substring(7);
             try {
                 username = jwtUtil.extractUsername(jwt);
+            } catch (io.jsonwebtoken.ExpiredJwtException e) {
+                System.out.println("❌ JWT Token expired: " + e.getMessage());
+                // Let the AuthenticationEntryPoint handle this
+            } catch (io.jsonwebtoken.MalformedJwtException e) {
+                System.out.println("❌ Invalid JWT token format: " + e.getMessage());
+                // Let the AuthenticationEntryPoint handle this
             } catch (Exception e) {
-                System.out.println("JWT Token extraction failed: " + e.getMessage());
+                System.out.println("❌ JWT Token extraction failed: " + e.getMessage());
+                // Let the AuthenticationEntryPoint handle this
             }
         }
 
         // Validate token and set authentication
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            try {
+                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-            if (jwtUtil.validateToken(jwt, userDetails)) {
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                if (jwtUtil.validateToken(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                    System.out.println("✅ JWT authentication successful for user: " + username);
+                } else {
+                    System.out.println("❌ JWT validation failed for user: " + username);
+                }
+            } catch (Exception e) {
+                System.out.println("❌ Authentication error: " + e.getMessage());
             }
         }
 
